@@ -104,9 +104,9 @@ class TestSearchInlet:
     def test_search_station_height_masl(self):
         """Searching using 'station_height_masl' with a decimal value."""
         store, db = _make_metastore_with_records([
-            {"uuid": "mno345", "station_height_masl": "3580.0", "data_type": "surface"},
+            {"uuid": "mno345", "station_height_masl": "3580.5", "data_type": "surface"},
         ])
-        result = search(store, station_height_masl="3580", data_type="surface")
+        result = search(store, station_height_masl="3580.5m", data_type="surface")
         assert result
 
     def test_search_multiple_inlets_finds_decimal(self):
@@ -114,9 +114,9 @@ class TestSearchInlet:
         searching for a specific decimal inlet should return only that record.
         """
         store, db = _make_metastore_with_records([
-            {"uuid": "r1", "inlet": "5m", "species": "ch4", "site": "JFJ", "data_type": "surface"},
-            {"uuid": "r2", "inlet": "13.9m", "species": "ch4", "site": "JFJ", "data_type": "surface"},
-            {"uuid": "r3", "inlet": "13.9m", "species": "co2", "site": "JFJ", "data_type": "surface"},
+            {"uuid": "r1", "inlet": "5m", "species": "ch4", "site": "jfj", "data_type": "surface"},
+            {"uuid": "r2", "inlet": "13.9m", "species": "ch4", "site": "jfj", "data_type": "surface"},
+            {"uuid": "r3", "inlet": "13.9m", "species": "co2", "site": "jfj", "data_type": "surface"},
         ])
         result = search(store, species="ch4", site="JFJ", inlet="13.9m", data_type="surface")
         assert result

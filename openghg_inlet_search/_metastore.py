@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional
 import tinydb
 from tinydb.storages import MemoryStorage
 
+from openghg_inlet_search._inlet import format_inlet
+from openghg_inlet_search._strings import clean_string
+
 MetaData = Dict[str, Any]
 QueryResults = List[Dict[str, Any]]
 
@@ -29,6 +32,40 @@ class MetaStore:
         """Convert all keys to lowercase."""
         return {k.lower(): v for k, v in metadata.items()}
 
+    def _normalize_inlet_values(self, metadata: MetaData) -> MetaData:
+        """Apply inlet/height formatting to relevant metadata values.
+
+        This ensures consistency for storing values such as inlet or height,
+        normalizing numeric and unit representations. It also cleans other
+        string values to make searches case-insensitive and whitespace/punctuation
+        agnostic.
+        """
+        normalized: MetaData = {}
+        for key, value in metadata.items():
+            # Only process if value is not None
+            if value is None:
+                normalized[key] = value
+                continue
+
+            lowkey = key.lower()
+            if "inlet" in lowkey or "height" in lowkey:
+                # Handle list/tuple inputs for inlet-like values
+                if isinstance(value, (list, tuple)):
+                    normalized[key] = [format_inlet(v, key_name=lowkey) for v in value]
+                elif isinstance(value, dict):
+                    normalized[key] = {k: format_inlet(v, key_name=k.lower()) for k, v in value.items()}
+                else:
+                    normalized[key] = format_inlet(value, key_name=lowkey)
+            else:
+                # Clean other values to ensure consistent comparison
+                if isinstance(value, (list, tuple)):
+                    normalized[key] = [clean_string(v) for v in value]
+                elif isinstance(value, dict):
+                    normalized[key] = {k: clean_string(v) for k, v in value.items()}
+                else:
+                    normalized[key] = clean_string(value)
+        return normalized
+
     def search(self, search_terms: Optional[MetaData] = None) -> QueryResults:
         """Search metastore using a dictionary of search terms.
 
@@ -49,6 +86,8 @@ class MetaStore:
         Args:
             metadata: metadata to add to the metastore.
         """
+        # Normalize inlet/height-related values and clean other values before storing
+        metadata = self._normalize_inlet_values(metadata)
         self._db.insert(self._format_metadata(metadata))
 
 

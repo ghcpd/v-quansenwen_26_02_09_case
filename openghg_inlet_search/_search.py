@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 from openghg_inlet_search._strings import clean_string
+from openghg_inlet_search._inlet import format_inlet
 from openghg_inlet_search._metastore import MetaStore
 
 
@@ -20,6 +21,39 @@ class SearchResults:
         return f"SearchResults(n_results={n})"
 
 
+def _is_inlet_key(key: str) -> bool:
+    """Determine whether a search key refers to an inlet/height value."""
+    if not isinstance(key, str):
+        return False
+    key = key.lower()
+    return "inlet" in key or "height" in key
+
+
+def _format_search_value(key: str, value: Any) -> Any:
+    """Format a search value, applying inlet formatting when appropriate.
+
+    Non-inlet values are cleaned using :func:`clean_string` to ensure
+    consistent comparison. Inlet/height-like values are passed through
+    :func:`format_inlet`, with the key name provided to ensure proper unit
+    handling. The output is lowercased for consistency.
+    """
+    if value is None:
+        return None
+
+    if _is_inlet_key(key):
+        try:
+            formatted = format_inlet(value, key_name=key.lower())
+        except Exception:
+            # Fallback: if formatting fails, treat as string
+            formatted = value
+        if isinstance(formatted, str):
+            formatted = formatted.lower().replace(" ", "")
+        return formatted
+    else:
+        # Use existing clean_string behaviour for all other values
+        return clean_string(value)
+
+
 def _base_search(metastore: MetaStore, **kwargs: Any) -> SearchResults:
     """Search for data records. Any keyword arguments may be passed to the
     function and these keywords will be used to search metadata.
@@ -31,7 +65,7 @@ def _base_search(metastore: MetaStore, **kwargs: Any) -> SearchResults:
        - Note: in this case the name of argument itself will be ignored.
      - str/other - argument used directly.
 
-    All input search values are formatted (clean_string).
+    All input search values are formatted appropriately.
 
     Args:
         metastore: MetaStore instance to search.
@@ -43,19 +77,23 @@ def _base_search(metastore: MetaStore, **kwargs: Any) -> SearchResults:
 
     # Select and format the search terms
     # - ignore any kwargs which are None
-    # - clean search terms directly or within data structures
+    # - apply formatting / cleaning to search terms directly or within data structures
     search_kwargs: Dict[str, Any] = {}
     for k, v in kwargs.items():
         if isinstance(v, (list, tuple)):
-            v = [clean_string(value) for value in v if value is not None]
-            if not v:  # Check empty list
-                v = None
+            formatted_list = [
+                _format_search_value(k, value) for value in v if value is not None
+            ]
+            v = formatted_list if formatted_list else None
         elif isinstance(v, dict):
-            v = {key: clean_string(value) for key, value in v.items() if value is not None}
-            if not v:  # Check empty dict
-                v = None
+            formatted_dict = {
+                key: _format_search_value(key if isinstance(key, str) else k, value)
+                for key, value in v.items()
+                if value is not None
+            }
+            v = formatted_dict if formatted_dict else None
         else:
-            v = clean_string(v)
+            v = _format_search_value(k, v)
 
         if v is not None:
             search_kwargs[k] = v
