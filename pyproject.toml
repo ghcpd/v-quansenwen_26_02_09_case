@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openghg_inlet_search"
+version = "0.1.0"
+description = "Utility for formatting inlet heights and searching metadata records"
+requires-python = ">=3.9"
+dependencies = [
+    "tinydb>=4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
