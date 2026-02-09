@@ -1,0 +1,28 @@
+You are working on a small Python package openghg_inlet_search that formats metadata fields (notably inlet/height values) and searches an in-memory TinyDB-backed metastore.
+Goal: make the full pytest suite pass while preserving the project’s intended semantics and API.
+Context
+- The package provides:
+  - clean_string: normalizes general metadata strings.
+  - format_inlet: normalizes inlet/height-like values (supports decimals and optional unit suffixes).
+  - search / _base_search: normalizes incoming search terms, expands OR-style queries for lists/dicts, then queries the metastore.
+- Some search scenarios involving decimal inlet/height values currently return zero results even when matching records exist.
+What to do
+1. Install and run tests:
+   - python -m pip install -e .
+   - python -m pytest -v
+2. Find the root cause of the zero-result searches for decimal inlet/height values by tracing how search terms are normalized before querying TinyDB.
+3. Implement a minimal code change that:
+   - Leaves current normalization for general string fields untouched.
+   - Normalizes inlet-like search keys using the inlet formatting logic (so decimals are preserved and matching is consistent with stored values).
+   - Works for both scalar values and list/tuple inputs passed for inlet-like keys.
+   - Keeps the current API shape (search(metastore, **kwargs) and _base_search) unchanged.
+4. Re-run tests and confirm everything passes.
+Constraints
+- Keep changes small and localized to the search normalization path.
+- Avoid adding new dependencies.
+- Do not change the tests unless you can clearly justify a mismatch with intended behavior.
+Deliverable (important)
+- Provide the complete updated contents of any file you changed (not a diff), with file paths as headings.
+- Include a brief explanation (2–5 sentences) of what was happening and why your change resolves it.
+- Include the exact commands you ran to verify the result (python -m pytest -v).
+- Well Documentation.
