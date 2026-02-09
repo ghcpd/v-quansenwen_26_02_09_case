@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from openghg_inlet_search._strings import clean_string
 from openghg_inlet_search._metastore import MetaStore
+from openghg_inlet_search._inlet import format_inlet  # added import
 
 
 class SearchResults:
@@ -45,17 +46,32 @@ def _base_search(metastore: MetaStore, **kwargs: Any) -> SearchResults:
     # - ignore any kwargs which are None
     # - clean search terms directly or within data structures
     search_kwargs: Dict[str, Any] = {}
+
+    def _format_value(key: str, value: Any) -> Any:
+        """Format a single search value depending on key."""
+        if value is None:
+            return None
+        # Determine if this key should be treated as an inlet/height field
+        if any(tok in key for tok in ("inlet", "height")):
+            try:
+                return format_inlet(value, key_name=key)
+            except Exception:
+                # In case format_inlet cannot handle the value, fall back to clean_string
+                return clean_string(value)
+        else:
+            return clean_string(value)
+
     for k, v in kwargs.items():
         if isinstance(v, (list, tuple)):
-            v = [clean_string(value) for value in v if value is not None]
+            v = [_format_value(k, value) for value in v if value is not None]
             if not v:  # Check empty list
                 v = None
         elif isinstance(v, dict):
-            v = {key: clean_string(value) for key, value in v.items() if value is not None}
+            v = {key: _format_value(k, value) for key, value in v.items() if value is not None}
             if not v:  # Check empty dict
                 v = None
         else:
-            v = clean_string(v)
+            v = _format_value(k, v)
 
         if v is not None:
             search_kwargs[k] = v
