@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 from openghg_inlet_search._strings import clean_string
+from openghg_inlet_search._inlet import format_inlet
 from openghg_inlet_search._metastore import MetaStore
 
 
@@ -46,16 +47,27 @@ def _base_search(metastore: MetaStore, **kwargs: Any) -> SearchResults:
     # - clean search terms directly or within data structures
     search_kwargs: Dict[str, Any] = {}
     for k, v in kwargs.items():
+        k_lower = k.lower()
+        is_inlet_key = "inlet" in k_lower or "height" in k_lower
         if isinstance(v, (list, tuple)):
-            v = [clean_string(value) for value in v if value is not None]
+            if is_inlet_key:
+                v = [format_inlet(value, key_name=k) for value in v if value is not None]
+            else:
+                v = [clean_string(value) for value in v if value is not None]
             if not v:  # Check empty list
                 v = None
         elif isinstance(v, dict):
-            v = {key: clean_string(value) for key, value in v.items() if value is not None}
+            if is_inlet_key:
+                v = {key: format_inlet(value, key_name=k) for key, value in v.items() if value is not None}
+            else:
+                v = {key: clean_string(value) for key, value in v.items() if value is not None}
             if not v:  # Check empty dict
                 v = None
         else:
-            v = clean_string(v)
+            if is_inlet_key:
+                v = format_inlet(v, key_name=k)
+            else:
+                v = clean_string(v)
 
         if v is not None:
             search_kwargs[k] = v

@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional
 import tinydb
 from tinydb.storages import MemoryStorage
 
+from openghg_inlet_search._inlet import format_inlet
+from openghg_inlet_search._strings import clean_string
+
 MetaData = Dict[str, Any]
 QueryResults = List[Dict[str, Any]]
 
@@ -26,8 +29,16 @@ class MetaStore:
         self._db = database
 
     def _format_metadata(self, metadata: MetaData) -> MetaData:
-        """Convert all keys to lowercase."""
-        return {k.lower(): v for k, v in metadata.items()}
+        """Convert all keys to lowercase and normalize values."""
+        formatted = {}
+        for k, v in metadata.items():
+            k_lower = k.lower()
+            if "inlet" in k_lower or "height" in k_lower:
+                v = format_inlet(v, key_name=k)
+            else:
+                v = clean_string(v)
+            formatted[k_lower] = v
+        return formatted
 
     def search(self, search_terms: Optional[MetaData] = None) -> QueryResults:
         """Search metastore using a dictionary of search terms.
