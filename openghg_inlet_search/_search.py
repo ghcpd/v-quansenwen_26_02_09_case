@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 from openghg_inlet_search._strings import clean_string
+from openghg_inlet_search._inlet import format_inlet
 from openghg_inlet_search._metastore import MetaStore
 
 
@@ -20,6 +21,51 @@ class SearchResults:
         return f"SearchResults(n_results={n})"
 
 
+def _is_inlet_like_key(key: str) -> bool:
+    """Determine if a key should be formatted as an inlet/height value.
+    
+    Inlet-like keys include:
+     - 'inlet' or 'height' directly
+     - Keys ending with '_magl' or '_masl' (height-related keys)
+    
+    Args:
+        key: The metadata key name to check
+        
+    Returns:
+        bool: True if the key should be formatted as an inlet, False otherwise
+    """
+    if key in ("inlet", "height"):
+        return True
+    if key.endswith("_magl") or key.endswith("_masl"):
+        return True
+    return False
+
+
+def _format_value(value: Any, key: Optional[str] = None) -> Any:
+    """Format a single search value using appropriate normalization.
+    
+    For inlet-like keys, uses format_inlet() to preserve decimals.
+    For other keys, uses clean_string() for general normalization.
+    
+    Args:
+        value: The value to format
+        key: The metadata key name (optional, used to determine formatting logic)
+        
+    Returns:
+        The formatted value
+    """
+    if value is None:
+        return None
+    
+    # Use format_inlet for inlet-like keys to preserve decimals
+    if key and _is_inlet_like_key(key):
+        return format_inlet(value, key_name=key)
+    
+    # Use clean_string for other keys
+    return clean_string(value)
+
+
+
 def _base_search(metastore: MetaStore, **kwargs: Any) -> SearchResults:
     """Search for data records. Any keyword arguments may be passed to the
     function and these keywords will be used to search metadata.
@@ -31,7 +77,9 @@ def _base_search(metastore: MetaStore, **kwargs: Any) -> SearchResults:
        - Note: in this case the name of argument itself will be ignored.
      - str/other - argument used directly.
 
-    All input search values are formatted (clean_string).
+    All input search values are formatted. For inlet-like keys (inlet, height, 
+    keys ending in _magl or _masl), format_inlet() is used to preserve decimals.
+    For other keys, clean_string() is used for general normalization.
 
     Args:
         metastore: MetaStore instance to search.
@@ -43,19 +91,22 @@ def _base_search(metastore: MetaStore, **kwargs: Any) -> SearchResults:
 
     # Select and format the search terms
     # - ignore any kwargs which are None
-    # - clean search terms directly or within data structures
+    # - format search terms using appropriate normalization (inlet or string)
     search_kwargs: Dict[str, Any] = {}
     for k, v in kwargs.items():
         if isinstance(v, (list, tuple)):
-            v = [clean_string(value) for value in v if value is not None]
+            # Format each item in the list/tuple
+            v = [_format_value(value, key=k) for value in v if value is not None]
             if not v:  # Check empty list
                 v = None
         elif isinstance(v, dict):
-            v = {key: clean_string(value) for key, value in v.items() if value is not None}
+            # For dict values, format each value in the dict
+            v = {key: _format_value(value, key=k) for key, value in v.items() if value is not None}
             if not v:  # Check empty dict
                 v = None
         else:
-            v = clean_string(v)
+            # Format the single value
+            v = _format_value(v, key=k)
 
         if v is not None:
             search_kwargs[k] = v
